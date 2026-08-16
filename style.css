@@ -213,17 +213,6 @@ body:not([data-current-section]) #gameOptions,
   image-rendering: pixelated;
 }
 
-.next {
-  font-size: 0.9rem;
-  text-align: center;
-  color: var(--ink);
-}
-
-.next .ok {
-  text-decoration: line-through;
-  opacity: 0.55;
-}
-
 /* Paddock grid */
 #pad {
   --cs: 68px;
@@ -597,6 +586,13 @@ body:not([data-current-section]) #gameOptions,
   content: "♣";
 }
 
+/* Build preview shown under the pointer while planting in Grow mode. */
+.gh {
+  opacity: 0.45;
+  pointer-events: none;
+  animation: none;
+}
+
 /* Toolbar */
 #bar {
   width: 100%;
@@ -667,6 +663,63 @@ body:not([data-current-section]) #gameOptions,
   border-radius: 10px;
 }
 
+/* Grow-tab shop panel: color chips, plant buttons and hint. */
+.shop {
+  position: relative;
+  background: var(--panel);
+  border: 4px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+  padding: 12px 10px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Live preview of the selected plant, pinned to the left (absolute, so it
+   never shifts the chips/plant buttons). */
+.preview {
+  --cs: 48px;
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--cs);
+  height: var(--cs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.chip {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  cursor: pointer;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+}
+
+.chip.on {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.chip.off {
+  filter: grayscale(1) brightness(0.55);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .pal .sw {
   position: relative;
   width: 30px;
@@ -698,10 +751,18 @@ body:not([data-current-section]) #gameOptions,
 
 /* How-to-feed hint under the fragment palette. */
 .feedhelp {
-  font-size: 0.9rem;
+  font-size: 0.7rem;
   font-weight: bold;
   text-align: center;
   color: var(--ink);
+  width: 100%;
+  padding: 0 4px;
+  opacity: 0.5;
+}
+
+/* Clear the downward arc of the end swatches in the Feed palette. */
+.pal .feedhelp {
+  margin-top: 24px;
 }
 
 .tools {

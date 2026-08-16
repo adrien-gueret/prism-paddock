@@ -12,6 +12,7 @@ const defaultState = {
   fed: 0, // unicorn has been fed at least once
   cleaned: 0, // player has cleaned at least one poop (reveals header/actions)
   pooped: 0, // unicorn has pooped at least once (shy prompt shown only once)
+  acts: 0, // build/remove actions + next-color hint revealed
 };
 
 export function reducer(state = defaultState, { type, payload }) {

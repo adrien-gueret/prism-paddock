@@ -69,6 +69,7 @@ let dragC = -1, // color of the fragment being dragged (-1 = none)
 let happy = false, // transient joyful mood (from eating until pooping)
   poopTarget = -1, // cell the unicorn waddles to after eating (-1 = none)
   poopColor = 0; // color of the poop it will leave there
+let ghostAt = -1; // cell currently showing the Grow build preview (-1 = none)
 const pendingUnlock = new Set(); // colors mid unlock-animation (kept greyed)
 
 const gid = (id) => document.getElementById(id);
@@ -88,6 +89,7 @@ function buildGrid() {
 
 function renderCells() {
   const st = S();
+  ghostAt = -1; // any build preview is wiped by the re-render below
   for (let i = 0; i < N; i++) {
     const d = st.decos.find((x) => x[0] === i);
     const p = st.poops.find((x) => x[0] === i);
@@ -166,58 +168,58 @@ export function initBg() {
 
 function renderBar() {
   const st = S();
-  // Fragment palette: always visible once red exists. Draggable onto the
-  // unicorn to feed it; also doubles as the color picker while building.
-  let pal = "";
-  for (let c = 0; c < 7; c++) {
-    const lock = c >= st.unlocked || pendingUnlock.has(c);
-    const sel = mode === 1 && selColor === c && !lock;
-    pal += `<button class="sw${sel ? " on" : ""}${lock ? " off" : ""}" data-c="${c}"${
-      lock ? " disabled" : ""
-    } style="background:${COLORS[c]};top:${arcY(c)}px" title="${
-      lock ? "Locked" : CNAMES[c]
-    }"></button>`;
-  }
-  // Tools depend on the current mode (build type buttons / remove hint).
-  let tools = "";
-  if (mode === 1 && st.cleaned) {
-    tools =
-      `<div class="tools">` +
-      TNAMES.map(
-        (t, k) =>
-          `<button class="tb${selType === k ? " on" : ""}" data-t="${k}">${t} ${COSTS[k]}</button>`,
-      ).join("") +
-      `</div>`;
-  } else if (mode === 2 && st.cleaned) {
-    tools = `<div class="hint">Click a decoration to remove it. Click a poop anytime to clean it.</div>`;
-  }
-  // How-to-feed hint.
-  const help = st.unlocked
-    ? `<div class="feedhelp">Drag fragments to the unicorn to feed it!</div>`
-    : "";
-  let next = "";
-  if (st.unlocked && st.cleaned && st.unlocked < 7) {
-    const items = REQS[st.unlocked]
-      .map(([t, c]) => {
-        const ok = st.decos.some((d) => d[1] === t && d[2] === c);
-        return `<span class="${ok ? "ok" : ""}">${CNAMES[c]} ${TNAMES[t]}</span>`;
-      })
-      .join(", ");
-    next = `<div class="next">Next: <b style="color:${COLORS[st.unlocked]}">${CNAMES[st.unlocked]}</b> — ${items}</div>`;
-  }
-  const modes =
-    st.unlocked && st.cleaned
-      ? [
-          ["🌷", "Build", 1],
-          ["✖", "Remove", 2],
-        ]
-          .map(
-            ([ic, label, m]) =>
-              `<button class="mb${mode === m ? " on" : ""}" data-m="${m}"><span class="ic">${ic}</span>${label}</button>`,
-          )
-          .join("")
+  const showTabs = st.unlocked && st.acts;
+  const feedTab = mode !== 1; // Feed is the default tab
+
+  let panel = "";
+  if (feedTab) {
+    // Feed tab: the rainbow fragment palette. Drag a fragment onto the unicorn
+    // to feed it. Always visible once red exists (feeding tutorial phase too).
+    let pal = "";
+    for (let c = 0; c < 7; c++) {
+      const lock = c >= st.unlocked || pendingUnlock.has(c);
+      pal += `<button class="sw${lock ? " off" : ""}" data-c="${c}"${
+        lock ? " disabled" : ""
+      } style="background:${COLORS[c]};top:${arcY(c)}px;view-transition-name:f${c}" title="${
+        lock ? "Locked" : CNAMES[c]
+      }"></button>`;
+    }
+    const help = st.unlocked
+      ? `<div class="feedhelp">Drag fragments to the unicorn to feed it!</div>`
       : "";
-  elBar.innerHTML = `<div class="pal">${pal}</div>${help}${tools}${next}<div class="modes">${modes}</div>`;
+    panel = `<div class="pal">${pal}${help}</div>`;
+  } else {
+    // Grow tab: the shop. Pick a color and a plant, then tap a tile to grow it.
+    let chips = "";
+    for (let c = 0; c < 7; c++) {
+      const lock = c >= st.unlocked || pendingUnlock.has(c);
+      chips += `<button class="chip${selColor === c && !lock ? " on" : ""}${lock ? " off" : ""}" data-c="${c}"${lock ? " disabled" : ""} style="background:${COLORS[c]};view-transition-name:f${c}" title="${lock ? "Locked" : CNAMES[c]}"></button>`;
+    }
+    const items = TNAMES.map(
+      (t, k) =>
+        `<button class="tb${selType === k ? " on" : ""}" data-t="${k}">${t} ${COSTS[k]}</button>`,
+    ).join("");
+    panel =
+      `<div class="shop">` +
+      `<div class="preview">${plantHtml("")}</div>` +
+      `<div class="chips">${chips}</div>` +
+      `<div class="tools">${items}</div>` +
+      `<div class="feedhelp">Pick a color and a plant, then tap a tile to grow it.</div>` +
+      `</div>`;
+  }
+
+  const tabs = showTabs
+    ? [
+        ["🌈", "Feed", 0],
+        ["🌱", "Grow", 1],
+      ]
+        .map(
+          ([ic, label, m]) =>
+            `<button class="mb${mode === m ? " on" : ""}" data-m="${m}"><span class="ic">${ic}</span>${label}</button>`,
+        )
+        .join("")
+    : "";
+  elBar.innerHTML = `${panel}<div class="modes">${tabs}</div>`;
 }
 
 function renderAll() {
@@ -453,12 +455,38 @@ function pointOverUnicorn(x, y) {
 
 function clean(i, color) {
   const st = S();
+  const firstClean = !st.cleaned;
   st.poops = st.poops.filter((p) => p[0] !== i);
-  st.cleaned = 1; // first cleanup reveals the header and build/remove actions
+  st.cleaned = 1; // first cleanup reveals the header (butterfly counters)
   sCollect();
   persist();
-  renderAll(); // reveal header/actions on the first cleanup
+  renderAll();
   flyToCounter(i, color, 3);
+  // The very first cleanup: the unicorn stops to explain butterflies.
+  if (firstClean) cleanTuto();
+}
+
+// After the first poop is cleaned, the unicorn stands still and explains what
+// cleaning is for. The player clicks anywhere to dismiss and resume play.
+function cleanTuto() {
+  clearTimeout(timer);
+  clearTimeout(walkT);
+  clearTimeout(heyT);
+  mood("hey"); // stands still while talking
+  showBubble(CLEAN_MSG);
+  setTimeout(() => document.addEventListener("click", cleanTutoDone, true), 0);
+}
+
+function cleanTutoDone(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.removeEventListener("click", cleanTutoDone, true);
+  hideBubble();
+  mood("");
+  S().acts = 1; // first harvest done: reveal the Feed / Grow action tabs
+  persist();
+  renderBar();
+  timer = setTimeout(step, 1200 + getRandom(1500));
 }
 
 // Fly `amount` butterflies from a cell to its color counter, adding them to
@@ -720,6 +748,33 @@ function onCell(i) {
   else if (mode === 2 && decoAt(i)) remove(i);
 }
 
+// Sprite markup for the currently selected plant. `extra` adds a class
+// (e.g. " gh" for the translucent grid preview).
+function plantHtml(extra) {
+  if (selType < 2) {
+    const li = (selType ? 19 : 26) + selColor;
+    return `<b class="d ds ${selType ? "mu" : "fl"}${extra}" style="--r:${li >> 2};--c:${li & 3}"></b>`;
+  }
+  return `<b class="d t2${extra}" style="background:${COLORS[selColor]}"></b>`;
+}
+
+function clearGhost() {
+  if (ghostAt >= 0 && cells[ghostAt]) {
+    const g = cells[ghostAt].querySelector(".gh");
+    if (g) g.remove();
+  }
+  ghostAt = -1;
+}
+
+// Show the build preview on cell `i` (Grow mode, empty & reachable cells only).
+function showGhost(i) {
+  if (i === ghostAt) return;
+  clearGhost();
+  if (mode !== 1 || i < 0 || i === uni || decoAt(i) || poopAt(i)) return;
+  cells[i].insertAdjacentHTML("beforeend", plantHtml(" gh"));
+  ghostAt = i;
+}
+
 function hey() {
   // Don't let a click interrupt the digestive walk (or she'd never poop).
   if (happy || elUs.classList.contains("hey")) return;
@@ -780,6 +835,10 @@ const DIGEST_MSG =
 // Embarrassed line said after she leaves a butterfly-poop behind.
 const POOP_MSG =
   "Oops... I made a butterfly-poop... Can you clean it up, please?";
+
+// Explanation shown the first time the player cleans a butterfly-poop.
+const CLEAN_MSG =
+  "Thank you! Cleaning a butterfly-poop gives you butterflies back! You can spend them to make the surroundings prettier!";
 
 // A tutorial cycle is active while red is locked, or once unlocked but not yet fed.
 const isTuto = () => !S().unlocked || !S().fed;
@@ -936,6 +995,14 @@ export default function initGame() {
     if (c) onCell(+c.dataset.i);
   };
 
+  // Preview the plant to be grown under the pointer while in Grow mode.
+  elPad.addEventListener("pointermove", (e) => {
+    if (mode !== 1) return;
+    const c = e.target.closest(".cell");
+    showGhost(c ? +c.dataset.i : -1);
+  });
+  elPad.addEventListener("pointerleave", clearGhost);
+
   elUni.onclick = () => {
     if (!S().unlocked) unlockRed();
   };
@@ -948,8 +1015,12 @@ export default function initGame() {
     if (!t) return;
     const ds = t.dataset;
     if (ds.m != null) {
-      mode = mode === +ds.m ? 0 : +ds.m; // toggle Build/Remove off
-      renderBar();
+      mode = +ds.m; // Feed / Grow behave like tabs (always one selected)
+      clearGhost(); // drop any build preview left on the grid
+      // Animate the color fragments morphing between palette and shop.
+      if (document.startViewTransition)
+        document.startViewTransition(() => renderBar());
+      else renderBar();
     } else if (ds.t != null) {
       selType = +ds.t;
       renderBar();
