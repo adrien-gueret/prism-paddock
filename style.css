@@ -207,7 +207,7 @@ body:not([data-current-section]) #gameOptions,
   width: var(--is);
   height: var(--is);
   background: url(./images/sprites.png) no-repeat;
-  background-size: calc(var(--is) * 69 / 17) calc(var(--is) * 239 / 17);
+  background-size: calc(var(--is) * 69 / 17) calc(var(--is) * 273 / 17);
   background-position: calc(var(--is) * var(--c) * -1)
     calc(var(--is) * var(--r) * -1);
   image-rendering: pixelated;
@@ -240,13 +240,48 @@ body:not([data-current-section]) #gameOptions,
   background-image: url(./images/sprites.png);
   background-repeat: no-repeat;
   background-position: calc(var(--cs) * -18 / 16) calc(var(--cs) * -69 / 16);
-  background-size: calc(var(--cs) * 69 / 16) calc(var(--cs) * 239 / 16);
+  background-size: calc(var(--cs) * 69 / 16) calc(var(--cs) * 273 / 16);
   image-rendering: pixelated;
 }
 
 .cell:nth-child(odd) {
   background-color: #86d156;
   background-position: calc(var(--cs) * -35 / 16) calc(var(--cs) * -69 / 16);
+}
+
+/* Green-quest hint: the clickable element glows softly from within. A blended
+   halo pulses under the sprite, so it reads as "pick me" without a hard border
+   and without disturbing the sprite's own sway / breathe / sparkle animation. */
+.cell.clk {
+  position: relative;
+  cursor: pointer;
+}
+
+.cell.clk::after {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 200, 0.85),
+    rgba(255, 255, 200, 0) 68%
+  );
+  mix-blend-mode: plus-lighter;
+  pointer-events: none;
+  animation: hintglow 1.2s ease-in-out infinite;
+}
+
+@keyframes hintglow {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.75);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.15);
+  }
 }
 
 .uni {
@@ -266,13 +301,13 @@ body:not([data-current-section]) #gameOptions,
   cursor: pointer;
 }
 
-/* Unicorn sprite: 16px tiles on a 69x239 sheet, 17px pitch. Cols: idle(0,1) walk(2,3). Rows: 0 normal, 1 happy, 2 sad, 3 eat(0,1)/sleep(2,3), 4 Hey!(0). */
+/* Unicorn sprite: 16px tiles on a 69x273 sheet, 17px pitch. Cols: idle(0,1) walk(2,3). Rows: 0 normal, 1 happy, 2 sad, 3 eat(0,1)/sleep(2,3), 4 Hey!(0). */
 .us {
   display: block;
   width: 100%;
   height: 100%;
   background: url(./images/sprites.png) 0 0 no-repeat;
-  background-size: calc(var(--cs) * 69 / 17) calc(var(--cs) * 239 / 17);
+  background-size: calc(var(--cs) * 69 / 17) calc(var(--cs) * 273 / 17);
   image-rendering: pixelated;
   animation: idle 1.1s infinite;
 }
@@ -445,7 +480,7 @@ body:not([data-current-section]) #gameOptions,
   cursor: pointer;
   background: url(./images/sprites.png) calc(var(--cs) * -1)
     calc(var(--cs) * -8) no-repeat;
-  background-size: calc(var(--cs) * 69 / 17) calc(var(--cs) * 239 / 17);
+  background-size: calc(var(--cs) * 69 / 17) calc(var(--cs) * 273 / 17);
   image-rendering: pixelated;
 }
 
@@ -453,7 +488,7 @@ body:not([data-current-section]) #gameOptions,
   position: absolute;
   inset: 0;
   background: url(./images/sprites.png) no-repeat;
-  background-size: calc(var(--cs) * 69 / 17) calc(var(--cs) * 239 / 17);
+  background-size: calc(var(--cs) * 69 / 17) calc(var(--cs) * 273 / 17);
   background-position-y: calc(var(--cs) * var(--r) * -1);
   image-rendering: pixelated;
   animation: bfly 0.5s steps(1) infinite;
@@ -538,7 +573,7 @@ body:not([data-current-section]) #gameOptions,
   height: 100%;
   box-shadow: none;
   background: url(./images/sprites.png) no-repeat;
-  background-size: calc(var(--cs) * 69 / 17) calc(var(--cs) * 239 / 17);
+  background-size: calc(var(--cs) * 69 / 17) calc(var(--cs) * 273 / 17);
   background-position: calc(var(--cs) * var(--c) * -1)
     calc(var(--cs) * var(--r) * -1);
   image-rendering: pixelated;
@@ -579,11 +614,20 @@ body:not([data-current-section]) #gameOptions,
   }
 }
 
-.t2 {
-  border-radius: 40%;
+/* Crystals twinkle. */
+.cr {
+  animation-name: sparkle;
+  animation-duration: 1.6s;
 }
-.t2::after {
-  content: "♣";
+
+@keyframes sparkle {
+  0%,
+  100% {
+    filter: grayscale(0) brightness(1);
+  }
+  45% {
+    filter: grayscale(0.8) brightness(1.6);
+  }
 }
 
 /* Build preview shown under the pointer while planting in Grow mode. */
@@ -591,6 +635,13 @@ body:not([data-current-section]) #gameOptions,
   opacity: 0.45;
   pointer-events: none;
   animation: none;
+}
+
+/* Not enough butterflies of the selected color: grey the card / preview. */
+.tb.off,
+.gh.off {
+  filter: grayscale(1) brightness(0.6);
+  opacity: 0.55;
 }
 
 /* Toolbar */
@@ -653,19 +704,65 @@ body:not([data-current-section]) #gameOptions,
 }
 
 .tb {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-family: monospace;
   font-weight: bold;
   cursor: pointer;
-  padding: 6px 12px;
+  padding: 8px 14px 8px 8px;
   border: 3px solid var(--ink);
   background: var(--panel-d);
   color: var(--ink);
-  border-radius: 10px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+/* Plant sprite on the left of a shop card. Needs its own --cs (it is
+   rendered outside the paddock grid). */
+.ti {
+  --cs: 46px;
+  width: var(--cs);
+  height: var(--cs);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Shop samples are static (no sway/breathe). */
+.ti .ds {
+  animation: none;
+}
+
+.tr {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.tn {
+  font-size: 1.1rem;
+}
+
+.cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--panel);
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  padding: 2px 8px 2px 4px;
+  font-size: 0.95rem;
+}
+
+.cost .bfi {
+  --is: 22px;
 }
 
 /* Grow-tab shop panel: color chips, plant buttons and hint. */
 .shop {
-  position: relative;
   background: var(--panel);
   border: 4px solid var(--ink);
   border-radius: 14px;
@@ -676,21 +773,6 @@ body:not([data-current-section]) #gameOptions,
   flex-direction: column;
   gap: 10px;
   align-items: center;
-}
-
-/* Live preview of the selected plant, pinned to the left (absolute, so it
-   never shifts the chips/plant buttons). */
-.preview {
-  --cs: 48px;
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: var(--cs);
-  height: var(--cs);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .chips {

@@ -10,36 +10,24 @@ const W = 9,
 // Data (index-based to stay compact)
 const COLORS = ["#e33", "#f80", "#fd0", "#3c3", "#39f", "#55f", "#a3e"];
 const CNAMES = ["Red", "Orange", "Yellow", "Green", "Blue", "Indigo", "Violet"];
-const TNAMES = ["Flower", "Mushroom", "Bush"];
+const TNAMES = ["Flower", "Mushroom", "Crystal"];
 const COSTS = [2, 3, 5];
-// Requirements to unlock each color: list of [type, color] that must exist
+// Requirements to unlock each color: list of [type, color] that must exist.
+// A type of -1 means "any type" of that color. Green (index 3) is special:
+// it is unlocked by the click-combo mini-quest, not by placing decorations.
 const REQS = [
   [],
   [[0, 0]],
-  [
-    [1, 0],
-    [0, 1],
-  ],
-  [
-    [0, 2],
-    [2, 0],
-  ],
-  [
-    [0, 3],
-    [1, 1],
-  ],
-  [
-    [0, 4],
-    [2, 2],
-  ],
+  [[-1, 1]],
+  [],
   [
     [1, 0],
     [1, 1],
     [1, 2],
     [1, 3],
-    [1, 4],
-    [1, 5],
   ],
+  [[2, 4]],
+  [],
 ];
 
 const S = getState;
@@ -47,6 +35,30 @@ const persist = () => setState(S());
 
 const decoAt = (i) => S().decos.find((d) => d[0] === i);
 const poopAt = (i) => S().poops.find((p) => p[0] === i);
+
+// Unlock quests: click these [type, color] elements in order (type -1 = any
+// type). Green is by color only; violet follows the six lines of the poem
+// (red flower, orange crystal, yellow mushroom, green flower, blue mushroom,
+// indigo crystal).
+const GREEN_SEQ = [
+  [-1, 0],
+  [-1, 1],
+  [-1, 2],
+];
+const VIOLET_SEQ = [
+  [0, 0],
+  [2, 1],
+  [1, 2],
+  [0, 3],
+  [1, 4],
+  [2, 5],
+];
+// Active quest's sequence (or null), whether a decoration matches a step, and
+// whether every element of a sequence is present on the board.
+const questSeq = () =>
+  S().combo === 1 ? GREEN_SEQ : S().combo2 === 1 ? VIOLET_SEQ : null;
+const questHit = (d, [t, c]) => (t < 0 || d[1] === t) && d[2] === c;
+const hasAll = (seq) => seq.every((s) => S().decos.some((d) => questHit(d, s)));
 
 // Non-persisted game vars
 let uni = 31; // unicorn cell (cosmetic, not saved)
@@ -59,8 +71,10 @@ let timer,
   msgT,
   walkT,
   heyT,
+  bubHideT,
   introI = -1,
   moves = 0;
+let lastLine = ""; // most recent thing she said, replayed when poked
 let bgA, bgB; // cross-fading rainbow background layers
 let dragC = -1, // color of the fragment being dragged (-1 = none)
   dragEl = null, // ghost element following the pointer
@@ -70,6 +84,7 @@ let happy = false, // transient joyful mood (from eating until pooping)
   poopTarget = -1, // cell the unicorn waddles to after eating (-1 = none)
   poopColor = 0; // color of the poop it will leave there
 let ghostAt = -1; // cell currently showing the Grow build preview (-1 = none)
+let comboProg = 0; // green quest: how many of red>orange>yellow clicked in order
 const pendingUnlock = new Set(); // colors mid unlock-animation (kept greyed)
 
 const gid = (id) => document.getElementById(id);
@@ -90,23 +105,23 @@ function buildGrid() {
 function renderCells() {
   const st = S();
   ghostAt = -1; // any build preview is wiped by the re-render below
+  const seq = questSeq(); // active unlock-quest sequence, if any
+  const step = seq && seq[comboProg]; // the [type,color] to click next
   for (let i = 0; i < N; i++) {
     const d = st.decos.find((x) => x[0] === i);
     const p = st.poops.find((x) => x[0] === i);
     let h = "";
     if (d) {
-      if (d[1] < 2) {
-        const li = (d[1] ? 19 : 26) + d[2];
-        h = `<b class="d ds ${d[1] ? "mu" : "fl"}" style="--r:${li >> 2};--c:${
-          li & 3
-        };--i:${i}"></b>`;
-      } else {
-        h = `<b class="d t2" style="background:${COLORS[d[2]]}"></b>`;
-      }
+      const li = [26, 19, 55][d[1]] + d[2];
+      h = `<b class="d ds ${["fl", "mu", "cr"][d[1]]}" style="--r:${li >> 2};--c:${
+        li & 3
+      };--i:${i}"></b>`;
     } else if (p) {
       h = `<b class="po"><i class="bf" style="--r:${(17 + p[1]) >> 1};--c:${((17 + p[1]) & 1) * 2}"></i></b>`;
     }
     cells[i].innerHTML = h;
+    // During a quest, only the next element to click pulses (progressive hint).
+    cells[i].classList.toggle("clk", !!d && !!step && questHit(d, step));
   }
 }
 
@@ -195,23 +210,34 @@ function renderBar() {
       const lock = c >= st.unlocked || pendingUnlock.has(c);
       chips += `<button class="chip${selColor === c && !lock ? " on" : ""}${lock ? " off" : ""}" data-c="${c}"${lock ? " disabled" : ""} style="background:${COLORS[c]};view-transition-name:f${c}" title="${lock ? "Locked" : CNAMES[c]}"></button>`;
     }
-    const items = TNAMES.map(
-      (t, k) =>
-        `<button class="tb${selType === k ? " on" : ""}" data-t="${k}">${t} ${COSTS[k]}</button>`,
-    ).join("");
+    // Until the first flower is placed, only the Flower card is offered so
+    // the player is nudged to create one. Crystals stay hidden until blue is
+    // unlocked (unlocked count reaches 5: red..blue).
+    const hasFlower = st.decos.some((d) => d[1] === 0);
+    const items = TNAMES.map((t, k) => {
+      if (k > 0 && !hasFlower) return "";
+      if (k === 2 && st.unlocked < 5) return "";
+      const off = st.bf[selColor] < COSTS[k]; // not enough of the chosen color
+      return (
+        `<button class="tb${selType === k ? " on" : ""}${off ? " off" : ""}" data-t="${k}">` +
+        `<span class="ti">${plantHtml(k, "")}</span>` +
+        `<span class="tr"><span class="tn">${t}</span>` +
+        `<span class="cost"><i class="bfi" style="--r:${12 + ((selColor / 4) | 0)};--c:${selColor % 4}"></i>× ${COSTS[k]}</span></span>` +
+        `</button>`
+      );
+    }).join("");
     panel =
       `<div class="shop">` +
-      `<div class="preview">${plantHtml("")}</div>` +
       `<div class="chips">${chips}</div>` +
       `<div class="tools">${items}</div>` +
-      `<div class="feedhelp">Pick a color and a plant, then tap a tile to grow it.</div>` +
+      `<div class="feedhelp">Spend butterflies of the selected color.</div>` +
       `</div>`;
   }
 
   const tabs = showTabs
     ? [
         ["🌈", "Feed", 0],
-        ["🌱", "Grow", 1],
+        ["✨", "Place", 1],
       ]
         .map(
           ([ic, label, m]) =>
@@ -258,13 +284,11 @@ function feed(color) {
     poopTarget = findPoopTarget();
     if (poopTarget < 0) return doPoop(); // no room: poop on the spot
     if (firstFeed) {
-      // On the very first feed, she thanks the player, then trots off.
+      // On the very first feed, she thanks the player, then trots off once the
+      // player clicks anywhere to dismiss her thank-you.
       mood("");
       showBubble(DIGEST_MSG);
-      timer = setTimeout(() => {
-        hideBubble();
-        walkToPoop();
-      }, 2600);
+      dismissBubbleThen(walkToPoop);
     } else {
       walkToPoop();
     }
@@ -272,10 +296,9 @@ function feed(color) {
 }
 
 // Nearest empty tile (no deco, no poop, not the current cell) she waddles to
-// before pooping. Normally at least two moves away, but the very first poop is
-// one move closer (one step to the target, then the poop on the next move).
+// before pooping: one step to the target, then the poop on the next move.
 function findPoopTarget() {
-  const minD = S().pooped ? 2 : 1;
+  const minD = 1;
   let best = [],
     bestD = Infinity;
   for (let i = 0; i < N; i++) {
@@ -356,15 +379,16 @@ function poopAndLeave() {
   // sets off again, which snaps her back to a neutral mood.
   walkT = setTimeout(() => {
     mood("shocked");
-    if (firstPoop) showBubble(POOP_MSG);
+    if (firstPoop) {
+      // First time: show the apology and wait for a click to move on.
+      showBubble(POOP_MSG);
+      dismissBubbleThen(step);
+    }
   }, 700);
-  timer = setTimeout(
-    () => {
-      hideBubble();
-      step(); // a new move returns her to the neutral mood
-    },
-    3000 + getRandom(2000),
-  );
+  if (!firstPoop) {
+    // Later poops have no bubble: just stay shocked a moment, then resume.
+    timer = setTimeout(step, 3000 + getRandom(2000));
+  }
 }
 
 // Drop a poop of the fed color on the current tile and return to normal.
@@ -474,19 +498,13 @@ function cleanTuto() {
   clearTimeout(heyT);
   mood("hey"); // stands still while talking
   showBubble(CLEAN_MSG);
-  setTimeout(() => document.addEventListener("click", cleanTutoDone, true), 0);
-}
-
-function cleanTutoDone(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  document.removeEventListener("click", cleanTutoDone, true);
-  hideBubble();
-  mood("");
-  S().acts = 1; // first harvest done: reveal the Feed / Grow action tabs
-  persist();
-  renderBar();
-  timer = setTimeout(step, 1200 + getRandom(1500));
+  dismissBubbleThen(() => {
+    mood("");
+    S().acts = 1; // first harvest done: reveal the Feed / Grow action tabs
+    persist();
+    renderBar();
+    timer = setTimeout(step, 1200 + getRandom(1500));
+  });
 }
 
 // Fly `amount` butterflies from a cell to its color counter, adding them to
@@ -497,7 +515,7 @@ function flyToCounter(i, color, amount) {
     st.bf[color] += amount;
     persist();
     renderTop();
-    if (mode === 0) renderBar();
+    renderBar(); // refresh affordability (shop items / swatches) with the new total
   };
   const target = elTop.querySelector(`.bfc[data-c="${color}"] .bfi`);
   if (!target) return inc();
@@ -546,18 +564,30 @@ function checkUnlocks() {
   let u = st.unlocked;
   while (
     u < 7 &&
-    REQS[u].every(([t, c]) => st.decos.some((d) => d[1] === t && d[2] === c))
+    (u === 3
+      ? st.combo === 2
+      : u === 6
+        ? st.combo2 === 2
+        : REQS[u].every(([t, c]) =>
+            st.decos.some((d) => (t < 0 || d[1] === t) && d[2] === c),
+          ))
   )
     u++;
   if (u > prev) {
     st.unlocked = u;
     sUnlock();
+    mode = 0; // switch back to the Feed tab to show off the new color
     if (u === 7 && !st.done) {
       st.done = 1;
       sWin();
     }
-    // Keep newly unlocked colors greyed until their arc animation finishes.
-    for (let c = prev; c < u; c++) pendingUnlock.add(c);
+    // Keep newly unlocked colors greyed until their arc animation finishes, and
+    // remember each unlock line now so reloading mid-animation still replays it.
+    for (let c = prev; c < u; c++) {
+      pendingUnlock.add(c);
+      const l = UNLOCK_LINES[c];
+      if (l) st.line = l[l.length - 1];
+    }
     // Trigger the juicy rainbow effect once the bar has re-rendered.
     requestAnimationFrame(() => {
       for (let c = prev; c < u; c++)
@@ -648,8 +678,9 @@ function rainbowUnlock(color) {
         renderBar();
         renderBg();
         const target = findBtn();
+        let pop;
         if (target) {
-          target.animate(
+          pop = target.animate(
             [
               { transform: "scale(1)", boxShadow: `0 0 0 0 ${col}` },
               {
@@ -661,6 +692,13 @@ function rainbowUnlock(color) {
             ],
             { duration: 600, easing: "ease-out" },
           );
+        }
+        // A couple of colors trigger a little speech once their arc lands.
+        const lines = UNLOCK_LINES[color];
+        if (lines) {
+          const say = () => saySequence(lines);
+          if (pop) pop.onfinish = say;
+          else say();
         }
       };
     }, 650);
@@ -724,6 +762,78 @@ function build(i) {
   checkUnlocks();
   persist();
   renderAll();
+  // Placing the very first yellow element kicks off the green mini-quest.
+  if (selColor === 2 && st.combo === 0 && st.unlocked === 3) startGreenQuest();
+  // Once every poem element exists (and indigo is unlocked), start the violet one.
+  if (st.combo2 === 0 && st.unlocked === 6 && hasAll(VIOLET_SEQ))
+    startVioletQuest();
+}
+
+// A quest: the unicorn pauses, shows a hint bubble, and the matching elements
+// start pulsing. The bubble is dismissed on any click (which also counts as the
+// first combo step), after which she resumes roaming while the player clicks.
+function startQuest(msg) {
+  comboProg = 0;
+  clearTimeout(timer);
+  clearTimeout(walkT);
+  clearTimeout(heyT);
+  mood("hey"); // brief attention-grabbing pose while the hint shows
+  showBubble(msg);
+  renderCells(); // light up the clickable elements
+  dismissBubbleThen(() => {
+    mood("");
+    timer = setTimeout(step, 1200 + getRandom(1500));
+  }, true);
+}
+
+function startGreenQuest() {
+  S().combo = 1;
+  persist();
+  startQuest(GREEN_MSG);
+}
+
+function startVioletQuest() {
+  S().combo2 = 1;
+  persist();
+  startQuest(VIOLET_POEM);
+}
+
+// Advance the active quest after its highlighted (next) element was clicked.
+function comboStep() {
+  comboProg++;
+  sPlace();
+  if (comboProg === questSeq().length) return solveQuest();
+  renderCells(); // move the pulsing hint to the next element
+}
+
+function solveQuest() {
+  const st = S();
+  if (st.combo === 1) st.combo = 2;
+  else st.combo2 = 2;
+  hideBubble();
+  checkUnlocks(); // the quest's color (and any further ones) now unlock
+  persist();
+  renderAll(); // clears the .clk hints (no quest is active anymore)
+  // No need to restart the walk loop: she's already roaming since the hint
+  // bubble was dismissed at the start of the combo.
+}
+
+// Once green's unlock animation is over, the unicorn says a couple of lines,
+// each dismissed by a click, then goes back to roaming.
+function saySequence(lines, k = 0) {
+  if (!k) {
+    clearTimeout(timer);
+    clearTimeout(walkT);
+    clearTimeout(heyT);
+    mood("hey");
+  }
+  if (k >= lines.length) {
+    mood("");
+    timer = setTimeout(step, 1200 + getRandom(1500));
+    return;
+  }
+  showBubble(lines[k]);
+  dismissBubbleThen(() => saySequence(lines, k + 1));
 }
 
 function remove(i) {
@@ -742,20 +852,29 @@ function remove(i) {
 
 function onCell(i) {
   const p = poopAt(i);
+  const d = decoAt(i);
+  // During a quest, clicking the highlighted (next) element advances the combo;
+  // clicking anything else resets it. Either way the normal action still runs.
+  const seq = questSeq();
+  if (seq) {
+    const st = seq[comboProg];
+    if (d && st && questHit(d, st)) return comboStep();
+    if (comboProg) {
+      comboProg = 0;
+      renderCells();
+    }
+  }
   if (p) return clean(i, p[1]);
   if (i === uni) return hey();
   if (mode === 1) build(i);
-  else if (mode === 2 && decoAt(i)) remove(i);
+  else if (mode === 2 && d) remove(i);
 }
 
-// Sprite markup for the currently selected plant. `extra` adds a class
-// (e.g. " gh" for the translucent grid preview).
-function plantHtml(extra) {
-  if (selType < 2) {
-    const li = (selType ? 19 : 26) + selColor;
-    return `<b class="d ds ${selType ? "mu" : "fl"}${extra}" style="--r:${li >> 2};--c:${li & 3}"></b>`;
-  }
-  return `<b class="d t2${extra}" style="background:${COLORS[selColor]}"></b>`;
+// Sprite markup for a plant of the given `type`, in the selected color.
+// `extra` adds a class (e.g. " gh" for the translucent grid preview).
+function plantHtml(type, extra) {
+  const li = [26, 19, 55][type] + selColor;
+  return `<b class="d ds ${["fl", "mu", "cr"][type]}${extra}" style="--r:${li >> 2};--c:${li & 3}"></b>`;
 }
 
 function clearGhost() {
@@ -771,8 +890,22 @@ function showGhost(i) {
   if (i === ghostAt) return;
   clearGhost();
   if (mode !== 1 || i < 0 || i === uni || decoAt(i) || poopAt(i)) return;
-  cells[i].insertAdjacentHTML("beforeend", plantHtml(" gh"));
+  // Grey the preview when the current color can't afford the selected plant.
+  const off = S().bf[selColor] < COSTS[selType];
+  cells[i].insertAdjacentHTML(
+    "beforeend",
+    plantHtml(selType, off ? " gh off" : " gh"),
+  );
   ghostAt = i;
+}
+
+// Redraw the current preview (e.g. after the color/plant selection changed).
+function refreshGhost() {
+  const i = ghostAt;
+  if (i >= 0) {
+    clearGhost();
+    showGhost(i);
+  }
 }
 
 function hey() {
@@ -780,11 +913,25 @@ function hey() {
   if (happy || elUs.classList.contains("hey")) return;
   clearTimeout(timer);
   clearTimeout(walkT);
+  // Snap her onto her destination tile so the 1s glide doesn't keep her
+  // sliding while she stands and repeats her line.
+  elUni.style.transition = "none";
+  renderUni();
+  void elUni.offsetWidth; // force the snap before restoring the transition
+  elUni.style.transition = "";
   mood("hey");
-  heyT = setTimeout(() => {
+  const resume = () => {
     mood("");
     timer = setTimeout(step, 2600 + getRandom(3000));
-  }, 500);
+  };
+  if (lastLine) {
+    // Poking her replays her most recent line, dismissed by a click like the
+    // other dialogues.
+    showBubble(lastLine);
+    dismissBubbleThen(resume);
+  } else {
+    heyT = setTimeout(resume, 500);
+  }
 }
 
 function step() {
@@ -840,6 +987,34 @@ const POOP_MSG =
 const CLEAN_MSG =
   "Thank you! Cleaning a butterfly-poop gives you butterflies back! You can spend them to make the surroundings prettier!";
 
+// Line said when the first yellow decoration fails to unlock green, starting
+// the click-in-order mini-quest.
+const GREEN_MSG = "Huh, green didn't unlock... What can we do?";
+
+// Two lines said once green's unlock animation finishes.
+const GREEN_DONE = [
+  "I'd never have figured that out on my own!",
+  "By the way, do you like mushrooms? I love them!",
+];
+
+// Line said once blue's unlock animation finishes.
+const BLUE_MSG =
+  "They say there are magic crystals that draw their power from the sea... Do you believe that?";
+
+// Poem said once indigo unlocks: a hint for the violet quest's click order.
+const VIOLET_POEM =
+  "A crimson bloom begins the trail,<br>" +
+  "Then amber crystal starts to glow.<br>" +
+  "A golden mushroom follows next,<br>" +
+  "Then emerald petals softly show.<br>" +
+  "A sapphire toadstool marks the way,<br>" +
+  "And indigo rock ends the play.";
+
+// Lines said when each color's unlock arc lands, indexed by color. The last
+// line is stored in state at unlock time (see checkUnlocks) so a reload during
+// the animation still lets her say/replay it instead of an older line.
+const UNLOCK_LINES = [, , , GREEN_DONE, [BLUE_MSG], [VIOLET_POEM]];
+
 // A tutorial cycle is active while red is locked, or once unlocked but not yet fed.
 const isTuto = () => !S().unlocked || !S().fed;
 const tutoLine = () => (S().unlocked ? FEED_MSG : INTRO[INTRO.length - 1]);
@@ -852,11 +1027,19 @@ function startIntro() {
 }
 
 function showBubble(text = INTRO[introI]) {
+  clearTimeout(bubHideT); // a new line cancels any pending fade-out removal
+  if (text) {
+    lastLine = text; // remember it so poking her can replay it
+    S().line = text; // ...even after a page reload
+    persist();
+  }
   let b = document.querySelector(".bub");
   if (!b) {
     b = document.createElement("div");
     b.className = "bub";
     document.body.appendChild(b);
+  } else {
+    b.classList.remove("out");
   }
   b.innerHTML = `<div class="bubb"><span>${text}</span></div>`;
   // Anchor to the unicorn in viewport coordinates, then clamp horizontally so
@@ -911,8 +1094,24 @@ function hideBubble() {
   const b = document.querySelector(".bub");
   if (b) {
     b.classList.add("out");
-    setTimeout(() => b.remove(), 250);
+    bubHideT = setTimeout(() => b.remove(), 250);
   }
+}
+
+// Single dialogue-dismiss helper: keep the current bubble up until the player
+// clicks anywhere, then dismiss it and run `next`. By default the click is
+// consumed; pass keepClick to let it also act on the board (e.g. a combo tap).
+function dismissBubbleThen(next, keepClick) {
+  const handler = (e) => {
+    if (!keepClick) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    document.removeEventListener("click", handler, true);
+    hideBubble();
+    if (next) next();
+  };
+  setTimeout(() => document.addEventListener("click", handler, true), 0);
 }
 
 // Unicorn stops and repeats the current tutorial line to prompt the player.
@@ -986,9 +1185,9 @@ export default function initGame() {
 
   buildGrid();
   mood(""); // normal idle sprite state
+  lastLine = S().line || ""; // restore her last line so poking can replay it
 
-  // Unicorn start: center, or first free cell if occupied
-  uni = decoAt(31) ? [...Array(N).keys()].find((i) => !decoAt(i)) : 31;
+  uni = 31; // unicorn always starts at the center tile
 
   elPad.onclick = (e) => {
     const c = e.target.closest(".cell");
@@ -1024,13 +1223,20 @@ export default function initGame() {
     } else if (ds.t != null) {
       selType = +ds.t;
       renderBar();
+      refreshGhost();
     } else if (ds.c != null && !t.disabled) {
       selColor = +ds.c;
       renderBar();
+      refreshGhost();
     }
   };
 
   renderAll();
-  if (!S().unlocked && !S().seen) startIntro();
-  else startPlay();
+  if (S().combo === 1) startGreenQuest();
+  else if (S().combo2 === 1) startVioletQuest();
+  else if (!S().unlocked && !S().seen) startIntro();
+  else {
+    startPlay();
+    if (lastLine) hey(); // on reload, auto-replay her last line once
+  }
 }

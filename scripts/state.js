@@ -13,6 +13,9 @@ const defaultState = {
   cleaned: 0, // player has cleaned at least one poop (reveals header/actions)
   pooped: 0, // unicorn has pooped at least once (shy prompt shown only once)
   acts: 0, // build/remove actions + next-color hint revealed
+  combo: 0, // green quest: 0 not started, 1 active (click red>orange>yellow), 2 solved
+  combo2: 0, // violet quest: same states, click the six poem elements in order
+  line: "", // unicorn's last spoken line, so poking replays it after a reload
 };
 
 export function reducer(state = defaultState, { type, payload }) {
