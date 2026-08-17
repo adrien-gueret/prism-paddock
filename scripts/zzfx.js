@@ -16,10 +16,10 @@ const zzfx = (...t) => zzfxP(zzfxG(...t));
 const zzfxP = (...t) => {
   let e = zzfxX.createBufferSource(),
     f = zzfxX.createBuffer(t.length, t[0].length, zzfxR);
-  t.map((d, i) => f.getChannelData(i).set(d)),
+  (t.map((d, i) => f.getChannelData(i).set(d)),
     (e.buffer = f),
     e.connect(zzfxX.destination),
-    e.start();
+    e.start());
   return e;
 };
 
@@ -44,7 +44,7 @@ const zzfxG = (
   d = 0,
   y = 1,
   m = 0,
-  C = 0
+  C = 0,
 ) => {
   let b = 2 * Math.PI,
     H = (v *= (500 * b) / zzfxR ** 2),
@@ -71,7 +71,7 @@ const zzfxG = (
   A *= zzfxR;
   l = (zzfxR * l) | 0;
   for (h = (e + m + t + u + d) | 0; a < h; Z[a++] = f)
-    ++K % ((100 * G) | 0) ||
+    (++K % ((100 * G) | 0) ||
       ((f = r
         ? 1 < r
           ? 2 < r
@@ -90,12 +90,12 @@ const zzfxG = (
         (a < e
           ? a / e
           : a < e + m
-          ? 1 - ((a - e) / m) * (1 - y)
-          : a < e + m + t
-          ? y
-          : a < h - d
-          ? ((h - a - d) / u) * y
-          : 0)),
+            ? 1 - ((a - e) / m) * (1 - y)
+            : a < e + m + t
+              ? y
+              : a < h - d
+                ? ((h - a - d) / u) * y
+                : 0)),
       (f = d
         ? f / 2 +
           (d > a ? 0 : ((a < h - d ? 1 : (h - a) / d) * Z[(a - d) | 0]) / 2)
@@ -104,7 +104,7 @@ const zzfxG = (
       (g += p - p * B * (1 - ((1e9 * (Math.sin(a) + 1)) % 2))),
       (E += p - p * B * (1 - ((1e9 * (Math.sin(a) ** 2 + 1)) % 2))),
       n && ++n > A && ((c += w), (D += w), (n = 0)),
-      !l || ++J % l || ((c = D), (v = H), (n = n || 1));
+      !l || ++J % l || ((c = D), (v = H), (n = n || 1)));
   return Z;
 };
 
@@ -219,6 +219,7 @@ export const generateMusic = (noteCraftData) => zzfxM(...noteCraftData);
 export const playMusic = (sound, loop = false) => {
   const node = zzfxP(...sound);
   node.loop = loop;
+  return node;
 };
 
 let volume = 1;

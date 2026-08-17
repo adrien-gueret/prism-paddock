@@ -15,6 +15,7 @@ const defaultState = {
   acts: 0, // build/remove actions + next-color hint revealed
   combo: 0, // green quest: 0 not started, 1 active (click red>orange>yellow), 2 solved
   combo2: 0, // violet quest: same states, click the six poem elements in order
+  qseen: 0, // bitmask of quest intros already shown (bit0 green, bit1 violet) — no repeat on re-activation
   line: "", // unicorn's last spoken line, so poking replays it after a reload
 };
 
