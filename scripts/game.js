@@ -112,12 +112,16 @@ function renderCells() {
     const p = st.poops.find((x) => x[0] === i);
     let h = "";
     if (d) {
-      const li = [26, 19, 55][d[1]] + d[2];
+      const li = [22, 15, 51][d[1]] + d[2];
       h = `<b class="d ds ${["fl", "mu", "cr"][d[1]]}" style="--r:${li >> 2};--c:${
         li & 3
       };--i:${i}"></b>`;
     } else if (p) {
-      h = `<b class="po"><i class="bf" style="--r:${(17 + p[1]) >> 1};--c:${((17 + p[1]) & 1) * 2}"></i></b>`;
+      // A rainbow poop (color 7) shows only its own tile — no butterfly overlay.
+      h =
+        p[1] === 7
+          ? `<b class="po rb"></b>`
+          : `<b class="po"><i class="bf" style="--r:${(15 + p[1]) >> 1};--c:${((15 + p[1]) & 1) * 2}"></i></b>`;
     }
     cells[i].innerHTML = h;
     // During a quest, only the next element to click pulses (progressive hint).
@@ -153,7 +157,7 @@ function renderTop() {
   let counts = "";
   for (let c = 0; c < st.unlocked; c++)
     counts += `<span class="bfc" data-c="${c}" title="${CNAMES[c]}"><i class="bfi" style="--r:${
-      12 + ((c / 4) | 0)
+      11 + ((c / 4) | 0)
     };--c:${c % 4}"></i>${st.bf[c]}</span>`;
   elTop.innerHTML = `<div class="meter"><div class="counts">${counts}</div></div>`;
 }
@@ -231,7 +235,7 @@ function renderBar() {
         `<button class="tb${selType === k ? " on" : ""}${off ? " off" : ""}" data-t="${k}">` +
         `<span class="ti">${plantHtml(k, "")}</span>` +
         `<span class="tr"><span class="tn">${t}</span>` +
-        `<span class="cost"><i class="bfi" style="--r:${12 + ((selColor / 4) | 0)};--c:${selColor % 4}"></i>× ${COSTS[k]}</span></span>` +
+        `<span class="cost"><i class="bfi" style="--r:${11 + ((selColor / 4) | 0)};--c:${selColor % 4}"></i>× ${COSTS[k]}</span></span>` +
         `</button>`
       );
     }).join("");
@@ -276,6 +280,11 @@ function showMsg(text) {
   clearTimeout(msgT);
   msgT = setTimeout(() => elMsg.classList.remove("show"), 1600);
 }
+
+// When the rainbow is complete, one poop in three comes out rainbow-colored
+// (stored as color 7): it shows no butterflies and refunds 3 of every color.
+const poopKind = () =>
+  S().unlocked === 7 && getRandom(2) === 0 ? 7 : poopColor;
 
 // Feeding a fragment: the unicorn chews (eat animation), then joyfully waddles
 // to the nearest empty tile and leaves a poop there before calming down.
@@ -368,7 +377,7 @@ function poopAndLeave() {
   if (!happy) return; // one poop per feed: a duplicate trigger is ignored
   const st = S();
   const firstPoop = !st.pooped;
-  st.poops.push([uni, poopColor]);
+  st.poops.push([uni, poopKind()]);
   st.pooped = 1;
   sPoop();
   persist();
@@ -415,7 +424,7 @@ function poopAndLeave() {
 function doPoop() {
   if (!happy) return; // one poop per feed: a duplicate trigger is ignored
   const st = S();
-  st.poops.push([uni, poopColor]);
+  st.poops.push([uni, poopKind()]);
   sPoop();
   persist();
   renderCells();
@@ -505,7 +514,9 @@ function clean(i, color) {
   sCollect();
   persist();
   renderAll();
-  flyToCounter(i, color, 3);
+  // A rainbow poop refunds 3 butterflies of every color; a normal one, 3 of its own.
+  if (color === 7) for (let c = 0; c < 7; c++) flyToCounter(i, c, 3);
+  else flyToCounter(i, color, 3);
   // The very first cleanup: the unicorn stops to explain butterflies.
   if (firstClean) cleanTuto();
 }
@@ -545,7 +556,7 @@ function flyToCounter(i, color, amount) {
   const sy = from.top + from.height / 2;
   const tx = to.left + to.width / 2;
   const ty = to.top + to.height / 2;
-  const li = 17 + color;
+  const li = 15 + color;
   const r = li >> 1;
   const c = (li & 1) * 2;
   const total = amount;
@@ -620,9 +631,7 @@ function checkUnlocks() {
 // and a confetti burst, then gets sucked into its color button, which pops
 // to feel "activated".
 function rainbowUnlock(color) {
-  const findBtn = () =>
-    elBar.querySelector(`.sw[data-c="${color}"]`) ||
-    elBar.querySelector(`.sw[data-f="${color}"]`);
+  const findBtn = () => elBar.querySelector(`.sw[data-c="${color}"]`);
   const w = innerWidth;
   const h = innerHeight;
   const col = COLORS[color];
@@ -919,7 +928,7 @@ function onCell(i) {
 // Sprite markup for a plant of the given `type`, in the selected color.
 // `extra` adds a class (e.g. " gh" for the translucent grid preview).
 function plantHtml(type, extra) {
-  const li = [26, 19, 55][type] + selColor;
+  const li = [22, 15, 51][type] + selColor;
   return `<b class="d ds ${["fl", "mu", "cr"][type]}${extra}" style="--r:${li >> 2};--c:${li & 3}"></b>`;
 }
 
