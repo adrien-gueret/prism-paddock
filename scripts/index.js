@@ -20,6 +20,7 @@ import initGame, { initBg } from "./game.js";
 
     if (!isGameInit && nextSection === "game") {
       isGameInit = true;
+      window.Wavedash?.requestFullscreen(true);
       initGame();
     }
   });
