@@ -1129,6 +1129,7 @@ function showBubble(text = INTRO[introI]) {
   // The layout may not be ready on the very first frame, so retry until it is.
   let tries = 0;
   const place = () => {
+    if (!b.isConnected) return;
     const r = elUni.getBoundingClientRect();
     if (!r.width && tries++ < 30) return requestAnimationFrame(place);
     const anchorX = r.left + r.width / 2;
@@ -1143,7 +1144,17 @@ function showBubble(text = INTRO[introI]) {
     b.style.setProperty("--tx", `${tx}px`);
   };
   place();
+  // Keep the bubble glued to the unicorn when the viewport changes or the page
+  // scrolls. Registered once (idempotent); it no-ops once the bubble is gone.
+  placeBubble = place;
 }
+
+// Reposition the currently visible speech bubble (set by showBubble). Bound to
+// resize/scroll so the bubble never drifts from the unicorn.
+let placeBubble = null;
+const repositionBubble = () => placeBubble && placeBubble();
+addEventListener("resize", repositionBubble);
+addEventListener("scroll", repositionBubble, true);
 
 function nextIntro(e) {
   e.preventDefault();
@@ -1173,6 +1184,7 @@ function startPlay() {
 
 // Fade out and remove the current speech bubble.
 function hideBubble() {
+  placeBubble = null; // stop tracking resize/scroll for the vanishing bubble
   const b = document.querySelector(".bub");
   if (b) {
     b.classList.add("out");
