@@ -1,5 +1,7 @@
 # Prism Paddock
 
+<img src="./images/cover.png" alt="Prism Paddock" width="320" />
+
 A gentle little unicorn is waiting for you in a meadow. Her rainbow has faded to
 grey... and since that rainbow is her only source of food, she is in real
 trouble!  
