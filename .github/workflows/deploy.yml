@@ -1,4 +1,4 @@
-name: Build & Deploy to GitHub Pages
+name: Deploy to GitHub Pages
 
 on:
   push:
@@ -17,23 +17,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  prepare:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build game
-        run: npm run build:entry
+      - name: Extract prebuilt entry
+        run: unzip -o entry.zip -d ./entry
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -41,7 +32,7 @@ jobs:
           path: ./entry
 
   deploy:
-    needs: build
+    needs: prepare
     runs-on: ubuntu-latest
     environment:
       name: github-pages
