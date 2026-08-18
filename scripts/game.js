@@ -383,10 +383,7 @@ function poopAndLeave() {
   st.poops.push([uni, pk]);
   st.pooped = 1;
   sPoop();
-  if (pk === 7) {
-    WD?.setAchievement("RAINBOW_POOP", true);
-    WD?.storeStats();
-  }
+  if (pk === 7) WD?.setAchievement("RPOOP", true);
   persist();
   renderCells();
   poopTarget = -1;
@@ -434,10 +431,7 @@ function doPoop() {
   const pk = poopKind();
   st.poops.push([uni, pk]);
   sPoop();
-  if (pk === 7) {
-    WD?.setAchievement("RAINBOW_POOP", true);
-    WD?.storeStats();
-  }
+  if (pk === 7) WD?.setAchievement("RPOOP", true);
   persist();
   renderCells();
   poopTarget = -1;
@@ -630,9 +624,8 @@ function checkUnlocks() {
       pendingUnlock.add(c);
       const l = UNLOCK_LINES[c];
       if (l) st.line = l[l.length - 1];
-      WD?.setAchievement("COLOR_" + CNAMES[c].toUpperCase(), true);
+      WD?.setAchievement("COLOR_" + c, true);
     }
-    WD?.storeStats();
     // Trigger the juicy rainbow effect once the bar has re-rendered.
     requestAnimationFrame(() => {
       for (let c = prev; c < u; c++)

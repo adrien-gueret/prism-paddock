@@ -1,4 +1,4 @@
-import { getKey } from "./save.js";
+import { load } from "./save.js";
 import initStore, { dispatch, getState } from "./store.js";
 
 const defaultState = {
@@ -38,5 +38,5 @@ export const toggleMuteSounds = (isMuted) =>
   });
 
 export default function init() {
-  initStore(reducer, getKey("state") || defaultState);
+  initStore(reducer, load() || defaultState);
 }

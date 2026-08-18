@@ -1,4 +1,4 @@
-import { storeKey } from "./save.js";
+import { save } from "./save.js";
 
 let state = {};
 let reducer;
@@ -6,7 +6,7 @@ let reducer;
 export const getState = () => state;
 export const setState = (newState) => {
   state = newState;
-  storeKey("state", state);
+  save(state);
 };
 
 export const dispatch = (action) => setState(reducer(state, action));
