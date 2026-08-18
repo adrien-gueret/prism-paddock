@@ -2,6 +2,8 @@ import { getRandom } from "./utils.js";
 import { getState, setState } from "./store.js";
 import { sFeed, sPoop, sCollect, sPlace, sUnlock, sWin } from "./sounds.js";
 
+const WD = window.Wavedash ?? null;
+
 // Grid
 const W = 9,
   H = 7,
@@ -377,9 +379,14 @@ function poopAndLeave() {
   if (!happy) return; // one poop per feed: a duplicate trigger is ignored
   const st = S();
   const firstPoop = !st.pooped;
-  st.poops.push([uni, poopKind()]);
+  const pk = poopKind();
+  st.poops.push([uni, pk]);
   st.pooped = 1;
   sPoop();
+  if (pk === 7) {
+    WD?.setAchievement("RAINBOW_POOP", true);
+    WD?.storeStats();
+  }
   persist();
   renderCells();
   poopTarget = -1;
@@ -424,8 +431,13 @@ function poopAndLeave() {
 function doPoop() {
   if (!happy) return; // one poop per feed: a duplicate trigger is ignored
   const st = S();
-  st.poops.push([uni, poopKind()]);
+  const pk = poopKind();
+  st.poops.push([uni, pk]);
   sPoop();
+  if (pk === 7) {
+    WD?.setAchievement("RAINBOW_POOP", true);
+    WD?.storeStats();
+  }
   persist();
   renderCells();
   poopTarget = -1;
@@ -618,7 +630,9 @@ function checkUnlocks() {
       pendingUnlock.add(c);
       const l = UNLOCK_LINES[c];
       if (l) st.line = l[l.length - 1];
+      WD?.setAchievement("COLOR_" + CNAMES[c].toUpperCase(), true);
     }
+    WD?.storeStats();
     // Trigger the juicy rainbow effect once the bar has re-rendered.
     requestAnimationFrame(() => {
       for (let c = prev; c < u; c++)

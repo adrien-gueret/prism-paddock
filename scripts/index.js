@@ -1,15 +1,13 @@
 import initSections from "./sections.js";
-import initUI from "./ui.js";
 
 import initState, { areSoundMuted } from "./state.js";
 import initSounds from "./sounds.js";
 import initGame, { initBg } from "./game.js";
 
 (async () => {
-  await initUI();
-
   initState();
   initBg();
+  window.Wavedash?.init();
 
   let isSoundInit = false;
   let isGameInit = false;
