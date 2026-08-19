@@ -5,14 +5,7 @@
 /* ================= */
 
 body {
-  --primary-dark: #3f2631;
-  --secondary-dark: #000;
   --primary-light: #fff;
-  --light-background: #cbcab8;
-  --lighter-background: #d1d0c4;
-  --medium-background: #bdbcab;
-  --border: #000000;
-  --radius: 3px;
   --ink: #2a2140;
   --panel: #f3e4c3;
   --panel-d: #e3caa0;
@@ -318,9 +311,9 @@ body:not([data-current-section]) #gameOptions,
   background-position: 0 calc(var(--cs) * -3);
 }
 
-/* Eating (chewing) animation on drop (sad row, cols 2-3). */
+/* Eating (chewing) animation on drop (sad row, cols 2-3). Reuses `walk`. */
 .us.eat {
-  animation: eat 0.34s infinite;
+  animation: walk 0.34s infinite;
   background-position-y: calc(var(--cs) * -2);
 }
 
@@ -330,9 +323,9 @@ body:not([data-current-section]) #gameOptions,
   background-position: calc(var(--cs) * -2) calc(var(--cs) * -2);
 }
 
-/* Shocked/embarrassed reaction after leaving a poop (animated sad row). */
+/* Shocked/embarrassed reaction after leaving a poop (animated sad row). Reuses `idle`. */
 .us.shocked {
-  animation: shocked 0.5s infinite;
+  animation: idle 0.5s infinite;
   background-position-y: calc(var(--cs) * -2);
 }
 
@@ -461,28 +454,6 @@ body:not([data-current-section]) #gameOptions,
   }
 }
 
-@keyframes eat {
-  0%,
-  49.9% {
-    background-position-x: calc(var(--cs) * -2);
-  }
-  50%,
-  100% {
-    background-position-x: calc(var(--cs) * -3);
-  }
-}
-
-@keyframes shocked {
-  0%,
-  49.9% {
-    background-position-x: 0;
-  }
-  50%,
-  100% {
-    background-position-x: calc(var(--cs) * -1);
-  }
-}
-
 /* Poops: base tile (row8,col2) with per-color animated butterflies overlay */
 .po {
   width: 100%;
@@ -571,17 +542,6 @@ body:not([data-current-section]) #gameOptions,
   height: 14px;
   border-radius: 2px;
   will-change: transform, opacity;
-}
-
-.d {
-  width: 62%;
-  height: 62%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(0, 0, 0, 0.4);
-  font-size: calc(var(--cs) * 0.4);
-  box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.2);
 }
 
 .ds {
@@ -839,19 +799,6 @@ body:not([data-current-section]) #gameOptions,
 /* While the unicorn is digesting, feeding is blocked: no grab cursor. */
 .eating .pal .sw {
   cursor: not-allowed;
-}
-
-/* Swap the feed hint for a "she's busy" message while she's digesting. */
-.feed-busy {
-  display: none;
-}
-
-.eating .feed-idle {
-  display: none;
-}
-
-.eating .feed-busy {
-  display: inline;
 }
 
 /* How-to-feed hint under the fragment palette. */

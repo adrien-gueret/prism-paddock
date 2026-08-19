@@ -115,7 +115,7 @@ function renderCells() {
     let h = "";
     if (d) {
       const li = [22, 15, 51][d[1]] + d[2];
-      h = `<b class="d ds ${["fl", "mu", "cr"][d[1]]}" style="--r:${li >> 2};--c:${
+      h = `<b class="ds ${["fl", "mu", "cr"][d[1]]}" style="--r:${li >> 2};--c:${
         li & 3
       };--i:${i}"></b>`;
     } else if (p) {
@@ -151,11 +151,12 @@ function mood(action) {
   elUs.className = "us" + (action ? " " + action : "") + (happy ? " joy" : "");
 }
 
-// Update the joyful/digesting mood and reflect it on the bar so the fragment
-// palette shows a disabled cursor while feeding is blocked.
+// Update the joyful/digesting mood, reflect it on the bar (disabled cursor)
+// and refresh the feed hint so it reads differently while she's busy.
 function setHappy(v) {
   happy = v;
   elBar?.classList.toggle("eating", v);
+  if (elBar) renderBar();
 }
 
 function renderTop() {
@@ -222,7 +223,11 @@ function renderBar() {
       }"></button>`;
     }
     const help = st.unlocked
-      ? `<div class="feedhelp"><span class="feed-idle">Drag fragments to the unicorn to feed it!</span><span class="feed-busy">The unicorn is munching... let her finish!</span></div>`
+      ? `<div class="feedhelp">${
+          happy
+            ? "Wait for the unicorn to finish!"
+            : "Drag fragments to the unicorn to feed it!"
+        }</div>`
       : "";
     panel = `<div class="pal">${pal}${help}</div>`;
   } else if (mode === 1) {
@@ -943,7 +948,7 @@ function onCell(i) {
 // `extra` adds a class (e.g. " gh" for the translucent grid preview).
 function plantHtml(type, extra) {
   const li = [22, 15, 51][type] + selColor;
-  return `<b class="d ds ${["fl", "mu", "cr"][type]}${extra}" style="--r:${li >> 2};--c:${li & 3}"></b>`;
+  return `<b class="ds ${["fl", "mu", "cr"][type]}${extra}" style="--r:${li >> 2};--c:${li & 3}"></b>`;
 }
 
 function clearGhost() {
