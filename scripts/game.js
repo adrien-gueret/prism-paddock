@@ -64,13 +64,12 @@ const hasAll = (seq) => seq.every((s) => S().decos.some((d) => questHit(d, s)));
 
 // Non-persisted game vars
 let uni = 31; // unicorn cell (cosmetic, not saved)
-let mode = 0; // 0 feed, 1 build, 2 remove
+let mode = 0; // 0 garden (feed + plant), 2 remove
 let selType = 0;
 let selColor = 0;
 let inited;
-let elTop, elPad, elBar, elMsg, elUni, elUs, cells;
+let elTop, elPad, elBar, elUni, elUs, cells;
 let timer,
-  msgT,
   walkT,
   heyT,
   bubHideT,
@@ -79,6 +78,7 @@ let timer,
 let lastLine = ""; // most recent thing she said, replayed when poked
 let bgA, bgB; // cross-fading rainbow background layers
 let dragC = -1, // color of the fragment being dragged (-1 = none)
+  dragT = -1, // plant type being dragged from the shop (-1 = feeding a color)
   dragEl = null, // ghost element following the pointer
   dragStart = null, // pointerdown position (to detect a real drag vs a tap)
   dragging = false; // a real drag is in progress
@@ -206,79 +206,59 @@ export function initBg() {
 
 function renderBar() {
   const st = S();
-  const showTabs = st.unlocked && st.acts;
-  const feedTab = mode === 0; // the fragment palette only shows in Feed mode
 
   let panel = "";
-  if (feedTab) {
-    // Feed tab: the rainbow fragment palette. Drag a fragment onto the unicorn
-    // to feed it. Always visible once red exists (feeding tutorial phase too).
+  {
+    // Garden panel: one shared rainbow palette. Drag a color onto the unicorn to
+    // feed her; tap a color to select it, then tap a tile to grow the chosen
+    // plant. The plant shop stays hidden until the first harvest (acts) so the
+    // early feed-only tutorial isn't cluttered.
     let pal = "";
     for (let c = 0; c < 7; c++) {
       const lock = c >= st.unlocked || pendingUnlock.has(c);
-      pal += `<button class="sw${lock ? " off" : ""}" data-c="${c}"${
+      pal += `<button class="sw${selColor === c && !lock ? " on" : ""}${lock ? " off" : ""}" data-c="${c}"${
         lock ? " disabled" : ""
-      } style="background:${COLORS[c]};top:${arcY(c)}px;view-transition-name:f${c}" title="${
+      } style="background:${COLORS[c]};top:${arcY(c)}px" title="${
         lock ? "Locked" : CNAMES[c]
       }"></button>`;
     }
-    const help = st.unlocked
+    const feedHelp = st.unlocked
       ? `<div class="feedhelp">${
           happy
             ? "Wait for the unicorn to finish!"
-            : "Drag fragments to the unicorn to feed it!"
+            : "Drag a color onto the unicorn to feed her!"
         }</div>`
       : "";
-    panel = `<div class="pal">${pal}${help}</div>`;
-  } else if (mode === 1) {
-    // Grow tab: the shop. Pick a color and a plant, then tap a tile to grow it.
-    let chips = "";
-    for (let c = 0; c < 7; c++) {
-      const lock = c >= st.unlocked || pendingUnlock.has(c);
-      chips += `<button class="chip${selColor === c && !lock ? " on" : ""}${lock ? " off" : ""}" data-c="${c}"${lock ? " disabled" : ""} style="background:${COLORS[c]};view-transition-name:f${c}" title="${lock ? "Locked" : CNAMES[c]}"></button>`;
+
+    // Shop (planting) is revealed only once the player has harvested butterflies.
+    let shop = "";
+    if (st.acts) {
+      // Until the first flower is placed, only the Flower card is offered so
+      // the player is nudged to create one. Crystals stay hidden until blue is
+      // unlocked (unlocked count reaches 5: red..blue).
+      const hasFlower = st.decos.some((d) => d[1] === 0);
+      const items = TNAMES.map((t, k) => {
+        if (k > 0 && !hasFlower) return "";
+        if (k === 2 && st.unlocked < 5) return "";
+        const off = st.bf[selColor] < COSTS[k]; // not enough of the chosen color
+        return (
+          `<button class="tb${off ? " off" : ""}" data-t="${k}">` +
+          `<span class="ti">${plantHtml(k, "")}</span>` +
+          `<span class="tr"><span class="tn">${t}</span>` +
+          `<span class="cost"><i class="bfi" style="--r:${11 + ((selColor / 4) | 0)};--c:${selColor % 4}"></i>× ${COSTS[k]}</span></span>` +
+          `</button>`
+        );
+      }).join("");
+      shop =
+        `<div class="tools">${items}</div>` +
+        `<div class="feedhelp">Drag a plant onto a tile to place it.</div>`;
     }
-    // Until the first flower is placed, only the Flower card is offered so
-    // the player is nudged to create one. Crystals stay hidden until blue is
-    // unlocked (unlocked count reaches 5: red..blue).
-    const hasFlower = st.decos.some((d) => d[1] === 0);
-    const items = TNAMES.map((t, k) => {
-      if (k > 0 && !hasFlower) return "";
-      if (k === 2 && st.unlocked < 5) return "";
-      const off = st.bf[selColor] < COSTS[k]; // not enough of the chosen color
-      return (
-        `<button class="tb${selType === k ? " on" : ""}${off ? " off" : ""}" data-t="${k}">` +
-        `<span class="ti">${plantHtml(k, "")}</span>` +
-        `<span class="tr"><span class="tn">${t}</span>` +
-        `<span class="cost"><i class="bfi" style="--r:${11 + ((selColor / 4) | 0)};--c:${selColor % 4}"></i>× ${COSTS[k]}</span></span>` +
-        `</button>`
-      );
-    }).join("");
-    panel =
-      `<div class="shop">` +
-      `<div class="chips">${chips}</div>` +
-      `<div class="tools">${items}</div>` +
-      `<div class="feedhelp">Spend butterflies of the selected color.</div>` +
-      `</div>`;
-  } else {
-    // Remove tab: tap any decoration to delete it and refund its butterflies.
-    panel = `<div class="shop"><div class="feedhelp">Tap a decoration to remove it and get your butterflies back.</div></div>`;
+
+    // Palette and shop live in one container so they read as a single panel.
+    panel = `<div class="pal">${pal}${feedHelp}${shop}</div>`;
   }
 
-  const tabDefs = [
-    ["🌈", "Feed", 0],
-    ["✨", "Place", 1],
-  ];
-  // The Remove tool appears as soon as a second color (orange) is unlocked.
-  if (st.unlocked >= 2) tabDefs.push(["🗑️", "Remove", 2]);
-  const tabs = showTabs
-    ? tabDefs
-        .map(
-          ([ic, label, m]) =>
-            `<button class="mb${mode === m ? " on" : ""}" data-m="${m}"><span class="ic">${ic}</span>${label}</button>`,
-        )
-        .join("")
-    : "";
-  elBar.innerHTML = `${panel}<div class="modes">${tabs}</div>`;
+  elBar.innerHTML = panel;
 }
 
 function renderAll() {
@@ -288,17 +268,39 @@ function renderAll() {
   renderBar();
 }
 
-function showMsg(text) {
-  elMsg.textContent = text;
-  elMsg.classList.add("show");
-  clearTimeout(msgT);
-  msgT = setTimeout(() => elMsg.classList.remove("show"), 1600);
-}
-
 // When the rainbow is complete, one poop in three comes out rainbow-colored
 // (stored as color 7): it shows no butterflies and refunds 3 of every color.
 const poopKind = () =>
   S().unlocked === 7 && getRandom(2) === 0 ? 7 : poopColor;
+
+// Little colored squares that spray from the unicorn's mouth while she chews,
+// like crumbs of the rainbow fragment she's eating.
+function crumbs(color) {
+  const r = elUni.getBoundingClientRect();
+  const dir = elUs.style.transform.includes("-1") ? -1 : 1; // facing left/right
+  const x = Math.round(r.left + r.width / 2 + dir * 16);
+  const y = Math.round(r.top + r.height * 0.55);
+  for (let k = 0; k < 14; k++) {
+    const p = document.createElement("i");
+    p.className = "crumb";
+    p.style.background = COLORS[color];
+    document.body.appendChild(p);
+    const dx = getRandom(70) - 35;
+    const dy = getRandom(16);
+    p.animate(
+      [
+        { transform: `translate(${x}px,${y}px)`, opacity: 1 },
+        { transform: `translate(${x + dx}px,${y + dy}px)`, opacity: 0 },
+      ],
+      {
+        duration: 500 + getRandom(400),
+        delay: getRandom(1200),
+        easing: "ease-in",
+        fill: "forwards",
+      },
+    ).onfinish = () => p.remove();
+  }
+}
 
 // Feeding a fragment: the unicorn chews (eat animation), then joyfully waddles
 // to the nearest empty tile and leaves a poop there before calming down.
@@ -317,6 +319,7 @@ function feed(color) {
   setHappy(true);
   poopColor = color;
   mood("eat");
+  crumbs(color);
   // Chew for a moment, then set off to find a spot to poop. Kept in `timer` so
   // an interruption cancels it (avoids a stray second poop trigger).
   timer = setTimeout(() => {
@@ -453,14 +456,21 @@ function doPoop() {
   timer = setTimeout(step, 2600 + getRandom(3000));
 }
 
-// --- Drag a fragment onto the unicorn to feed it (pointer based) ---
+// --- Drag a color fragment onto the unicorn to feed it, or a shop plant onto
+// a tile to place it (both pointer based, sharing the same machinery) ---
 function onFragDown(e) {
-  if (happy) return; // already full: can't feed until she has pooped
-  const sw = e.target.closest(".sw");
-  if (!sw || sw.disabled) return;
-  const c = +sw.dataset.c;
-  if (c < 0 || c >= S().unlocked) return; // locked fragment
-  dragC = c;
+  const tb = e.target.closest(".tb"); // a shop plant card
+  const sw = e.target.closest(".sw"); // a color swatch
+  if (tb && !tb.classList.contains("off")) {
+    dragT = +tb.dataset.t; // drag this plant type onto a tile
+    dragC = -1;
+  } else if (sw && !sw.disabled && !happy) {
+    // Feeding: blocked while she's digesting, and only for unlocked colors.
+    const c = +sw.dataset.c;
+    if (c < 0 || c >= S().unlocked) return;
+    dragC = c;
+    dragT = -1;
+  } else return;
   dragging = false;
   dragStart = { x: e.clientX, y: e.clientY };
   window.addEventListener("pointermove", onDragMove);
@@ -474,14 +484,37 @@ function onDragMove(e) {
       return;
     beginDrag(e);
   }
+  // The dragged sprite (a color fragment or a plant) trails the pointer.
   dragEl.style.left = `${e.clientX}px`;
   dragEl.style.top = `${e.clientY}px`;
+  if (dragT >= 0) {
+    // Plant drag: also highlight the tile under the pointer as the drop target.
+    const c = document.elementFromPoint(e.clientX, e.clientY)?.closest(".cell");
+    showGhost(c ? +c.dataset.i : -1);
+    return;
+  }
   dragEl.classList.toggle("over", pointOverUnicorn(e.clientX, e.clientY));
 }
 
 function beginDrag(e) {
   dragging = true;
-  // Freeze the unicorn on its eat-anticipation frame while dragging.
+  e.preventDefault();
+  if (dragT >= 0) {
+    // Planting: a full-size plant sprite trails the pointer to the target tile.
+    // It lives on <body>, so copy the paddock's cell size (--cs) onto it —
+    // the sprite (and its sheet sizing) are all scaled from that variable.
+    selType = dragT;
+    dragEl = document.createElement("div");
+    dragEl.className = "pdrag";
+    dragEl.style.setProperty(
+      "--cs",
+      getComputedStyle(elPad).getPropertyValue("--cs"),
+    );
+    dragEl.innerHTML = plantHtml(dragT, "");
+    document.body.appendChild(dragEl);
+    return;
+  }
+  // Feeding: freeze the unicorn on its eat-anticipation frame while dragging.
   clearTimeout(timer);
   clearTimeout(walkT);
   clearTimeout(heyT);
@@ -489,7 +522,7 @@ function beginDrag(e) {
   // Hide any tutorial bubble during the drag.
   document.removeEventListener("click", tutoClick, true);
   hideBubble();
-  e.preventDefault();
+  clearGhost(); // no plant preview should linger while feeding
   dragEl = document.createElement("i");
   dragEl.className = "frag-ghost";
   dragEl.style.background = COLORS[dragC];
@@ -499,8 +532,22 @@ function beginDrag(e) {
 function onDragUp(e) {
   window.removeEventListener("pointermove", onDragMove);
   window.removeEventListener("pointerup", onDragUp);
+  if (dragT >= 0) {
+    // Plant drag: drop it on the previewed (valid) tile, if any (a plain tap
+    // shows no preview, so ghostAt stays -1 and nothing is placed).
+    if (dragEl) {
+      dragEl.remove();
+      dragEl = null;
+    }
+    const at = ghostAt;
+    clearGhost();
+    dragT = -1;
+    dragging = false;
+    if (at >= 0) build(at);
+    return;
+  }
   if (!dragging) {
-    dragC = -1; // was a tap; let the click handler run (e.g. pick build color)
+    dragC = -1; // was a tap; let the click handler run (e.g. pick feed color)
     return;
   }
   const over = pointOverUnicorn(e.clientX, e.clientY);
@@ -549,7 +596,7 @@ function cleanTuto() {
   showBubble(CLEAN_MSG);
   dismissBubbleThen(() => {
     mood("");
-    S().acts = 1; // first harvest done: reveal the Feed / Grow action tabs
+    S().acts = 1; // first harvest done: reveal the Garden shop + Remove tab
     persist();
     renderBar();
     timer = setTimeout(step, 1200 + getRandom(1500));
@@ -625,7 +672,7 @@ function checkUnlocks() {
   if (u > prev) {
     st.unlocked = u;
     sUnlock();
-    mode = 0; // switch back to the Feed tab to show off the new color
+    mode = 0; // switch back to the Garden tab to show off the new color
     if (u === 7 && !st.done) {
       st.done = 1;
       sWin();
@@ -799,12 +846,7 @@ function burstConfetti(x, y) {
 function build(i) {
   if (i === uni || decoAt(i) || poopAt(i)) return;
   const st = S();
-  const cost = COSTS[selType];
-  if (st.bf[selColor] < cost) {
-    showMsg("Not enough " + CNAMES[selColor] + " butterflies");
-    return;
-  }
-  st.bf[selColor] -= cost;
+  st.bf[selColor] -= COSTS[selType];
   st.decos.push([i, selType, selColor]);
   sPlace();
   checkUnlocks();
@@ -941,7 +983,6 @@ function onCell(i) {
     }
   }
   if (i === uni) return hey();
-  if (mode === 1) build(i);
 }
 
 // Sprite markup for a plant of the given `type`, in the selected color.
@@ -959,27 +1000,15 @@ function clearGhost() {
   ghostAt = -1;
 }
 
-// Show the build preview on cell `i` (Grow mode, empty & reachable cells only).
+// Show the build preview on cell `i` (Garden tab, empty & reachable cells only,
+// and only once planting is available).
 function showGhost(i) {
   if (i === ghostAt) return;
   clearGhost();
-  if (mode !== 1 || i < 0 || i === uni || decoAt(i) || poopAt(i)) return;
-  // Grey the preview when the current color can't afford the selected plant.
-  const off = S().bf[selColor] < COSTS[selType];
-  cells[i].insertAdjacentHTML(
-    "beforeend",
-    plantHtml(selType, off ? " gh off" : " gh"),
-  );
+  if (mode === 2 || !S().acts || i < 0 || i === uni || decoAt(i) || poopAt(i))
+    return;
+  cells[i].insertAdjacentHTML("beforeend", plantHtml(selType, " gh"));
   ghostAt = i;
-}
-
-// Redraw the current preview (e.g. after the color/plant selection changed).
-function refreshGhost() {
-  const i = ghostAt;
-  if (i >= 0) {
-    clearGhost();
-    showGhost(i);
-  }
 }
 
 function hey() {
@@ -1277,8 +1306,6 @@ export default function initGame() {
   elTop = gid("top");
   elPad = gid("pad");
   elBar = gid("bar");
-  gid("game").insertAdjacentHTML("beforeend", `<div id="msg"></div>`);
-  elMsg = gid("msg");
 
   initBg();
 
@@ -1293,14 +1320,6 @@ export default function initGame() {
     if (c) onCell(+c.dataset.i);
   };
 
-  // Preview the plant to be grown under the pointer while in Grow mode.
-  elPad.addEventListener("pointermove", (e) => {
-    if (mode !== 1) return;
-    const c = e.target.closest(".cell");
-    showGhost(c ? +c.dataset.i : -1);
-  });
-  elPad.addEventListener("pointerleave", clearGhost);
-
   elUni.onclick = () => {
     if (!S().unlocked) unlockRed();
   };
@@ -1312,21 +1331,9 @@ export default function initGame() {
     const t = e.target.closest("button");
     if (!t) return;
     const ds = t.dataset;
-    if (ds.m != null) {
-      mode = +ds.m; // Feed / Grow behave like tabs (always one selected)
-      clearGhost(); // drop any build preview left on the grid
-      // Animate the color fragments morphing between palette and shop.
-      if (document.startViewTransition)
-        document.startViewTransition(() => renderBar());
-      else renderBar();
-    } else if (ds.t != null) {
-      selType = +ds.t;
-      renderBar();
-      refreshGhost();
-    } else if (ds.c != null && !t.disabled) {
+    if (ds.c != null && !t.disabled) {
       selColor = +ds.c;
       renderBar();
-      refreshGhost();
     }
   };
 

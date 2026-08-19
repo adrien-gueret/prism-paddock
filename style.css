@@ -151,6 +151,10 @@ body:not([data-current-section]) #gameOptions,
   padding: 12px;
   gap: 10px;
   color: var(--ink);
+  /* Keep the whole play column no wider than the paddock (9 tiles) so the
+     top meter and action bar line up with the grid instead of stretching. */
+  width: 100%;
+  max-width: calc(68px * 9);
 }
 
 /* Top bar: rainbow meter */
@@ -544,6 +548,16 @@ body:not([data-current-section]) #gameOptions,
   will-change: transform, opacity;
 }
 
+.crumb {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+  z-index: 60;
+}
+
 .ds {
   width: 100%;
   height: 100%;
@@ -613,9 +627,8 @@ body:not([data-current-section]) #gameOptions,
   animation: none;
 }
 
-/* Not enough butterflies of the selected color: grey the card / preview. */
-.tb.off,
-.gh.off {
+/* Not enough butterflies of the selected color: grey the card. */
+.tb.off {
   filter: grayscale(1) brightness(0.6);
   opacity: 0.55;
 }
@@ -633,7 +646,7 @@ body:not([data-current-section]) #gameOptions,
   border: 4px solid var(--ink);
   border-radius: 14px;
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
-  padding: 28px 10px;
+  padding: 28px 10px 14px;
   min-height: 42px;
   box-sizing: border-box;
   display: flex;
@@ -641,37 +654,6 @@ body:not([data-current-section]) #gameOptions,
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-}
-
-.modes {
-  display: flex;
-  gap: 10px;
-}
-
-.mb {
-  flex: 1;
-  font-family: monospace;
-  font-weight: bold;
-  font-size: 1.1rem;
-  cursor: pointer;
-  padding: 12px 8px;
-  border: 4px solid var(--ink);
-  background: var(--panel);
-  color: var(--ink);
-  border-radius: 14px;
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.mb .ic {
-  font-size: 1.3rem;
-}
-
-.mb.on {
-  background: var(--hi);
 }
 
 .tb {
@@ -732,7 +714,7 @@ body:not([data-current-section]) #gameOptions,
   --is: 22px;
 }
 
-/* Grow-tab shop panel: color chips, plant buttons and hint. */
+/* Grow-tab shop panel: plant buttons and hint. */
 .shop {
   background: var(--panel);
   border: 4px solid var(--ink);
@@ -744,33 +726,6 @@ body:not([data-current-section]) #gameOptions,
   flex-direction: column;
   gap: 10px;
   align-items: center;
-}
-
-.chips {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.chip {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  cursor: pointer;
-  border: 3px solid var(--ink);
-  border-radius: 8px;
-}
-
-.chip.on {
-  outline: 3px solid var(--ink);
-  outline-offset: 2px;
-}
-
-.chip.off {
-  filter: grayscale(1) brightness(0.55);
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .pal .sw {
@@ -785,7 +740,8 @@ body:not([data-current-section]) #gameOptions,
   touch-action: none;
 }
 
-.tb.on {
+/* Selected planting color in the shared Garden palette. */
+.pal .sw.on {
   outline: 3px solid var(--ink);
   outline-offset: 2px;
 }
@@ -796,9 +752,10 @@ body:not([data-current-section]) #gameOptions,
   cursor: not-allowed;
 }
 
-/* While the unicorn is digesting, feeding is blocked: no grab cursor. */
+/* While the unicorn is digesting, feeding is blocked, but a swatch can still
+   be tapped to pick a color, so keep the pointer cursor. */
 .eating .pal .sw {
-  cursor: not-allowed;
+  cursor: pointer;
 }
 
 /* How-to-feed hint under the fragment palette. */
@@ -810,11 +767,11 @@ body:not([data-current-section]) #gameOptions,
   width: 100%;
   padding: 0 4px;
   opacity: 0.5;
+  margin-top: 24px;
 }
 
-/* Clear the downward arc of the end swatches in the Feed palette. */
-.pal .feedhelp {
-  margin-top: 24px;
+.tools + .feedhelp {
+  margin-top: 0;
 }
 
 .tools {
@@ -822,6 +779,13 @@ body:not([data-current-section]) #gameOptions,
   gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+/* Inside the merged Garden panel, the shop cards sit on their own row below
+   the color palette rather than flowing inline with the swatches. */
+.pal .tools {
+  width: 100%;
+  margin-top: 4px;
 }
 
 /* Ghost fragment that follows the pointer while dragging to feed. */
@@ -841,26 +805,14 @@ body:not([data-current-section]) #gameOptions,
   transform: translate(-50%, -50%) scale(1.35);
 }
 
-/* Toast message */
-#msg {
-  position: absolute;
-  top: 42%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(0.85);
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
-  padding: 12px 22px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 1.3rem;
-  white-space: nowrap;
-  opacity: 0;
+/* Full-size plant sprite that trails the pointer while dragging one to place. */
+.pdrag {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  width: var(--cs);
+  height: var(--cs);
+  opacity: 0.85;
   pointer-events: none;
-  transition: 0.3s;
-  z-index: 5;
-}
-
-#msg.show {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
+  transform: translate(-50%, -50%);
 }
