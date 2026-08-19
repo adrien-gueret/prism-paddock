@@ -38,5 +38,7 @@ export const toggleMuteSounds = (isMuted) =>
   });
 
 export default function init() {
-  initStore(reducer, load() || defaultState);
+  // Merge the saved game over the defaults so a save from an older schema
+  // (missing newer fields like `decos`) still gets valid values for them.
+  initStore(reducer, { ...defaultState, ...(load() || {}) });
 }

@@ -836,6 +836,24 @@ body:not([data-current-section]) #gameOptions,
   cursor: not-allowed;
 }
 
+/* While the unicorn is digesting, feeding is blocked: no grab cursor. */
+.eating .pal .sw {
+  cursor: not-allowed;
+}
+
+/* Swap the feed hint for a "she's busy" message while she's digesting. */
+.feed-busy {
+  display: none;
+}
+
+.eating .feed-idle {
+  display: none;
+}
+
+.eating .feed-busy {
+  display: inline;
+}
+
 /* How-to-feed hint under the fragment palette. */
 .feedhelp {
   font-size: 0.7rem;

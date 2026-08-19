@@ -151,6 +151,13 @@ function mood(action) {
   elUs.className = "us" + (action ? " " + action : "") + (happy ? " joy" : "");
 }
 
+// Update the joyful/digesting mood and reflect it on the bar so the fragment
+// palette shows a disabled cursor while feeding is blocked.
+function setHappy(v) {
+  happy = v;
+  elBar?.classList.toggle("eating", v);
+}
+
 function renderTop() {
   const st = S();
   const show = st.unlocked && st.cleaned;
@@ -215,7 +222,7 @@ function renderBar() {
       }"></button>`;
     }
     const help = st.unlocked
-      ? `<div class="feedhelp">Drag fragments to the unicorn to feed it!</div>`
+      ? `<div class="feedhelp"><span class="feed-idle">Drag fragments to the unicorn to feed it!</span><span class="feed-busy">The unicorn is munching... let her finish!</span></div>`
       : "";
     panel = `<div class="pal">${pal}${help}</div>`;
   } else if (mode === 1) {
@@ -302,7 +309,7 @@ function feed(color) {
     persist();
     endTuto();
   }
-  happy = true;
+  setHappy(true);
   poopColor = color;
   mood("eat");
   // Chew for a moment, then set off to find a spot to poop. Kept in `timer` so
@@ -387,7 +394,7 @@ function poopAndLeave() {
   persist();
   renderCells();
   poopTarget = -1;
-  happy = false; // back to the normal (row 1) mood from this move on
+  setHappy(false); // back to the normal (row 1) mood from this move on
   // Step to a random neighbour; the poop shows right as this move begins.
   const col = uni % W,
     row = (uni / W) | 0,
@@ -435,7 +442,7 @@ function doPoop() {
   persist();
   renderCells();
   poopTarget = -1;
-  happy = false;
+  setHappy(false);
   mood(""); // back to the normal (row 1) mood
   clearTimeout(walkT);
   timer = setTimeout(step, 2600 + getRandom(3000));
