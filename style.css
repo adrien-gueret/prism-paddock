@@ -803,14 +803,17 @@ body:not([data-current-section]) #gameOptions,
   width: auto;
   position: relative;
   text-align: center;
+  pointer-events: none;
 }
 .fhl {
   bottom: 16px;
   left: 8px;
+  transform: rotate(-3deg);
 }
 .fhr {
   top: 8px;
   right: 32px;
+  transform: rotate(3deg);
 }
 
 .tools {

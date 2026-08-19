@@ -861,6 +861,17 @@ function build(i) {
   checkUnlocks();
   persist();
   renderAll();
+  // Juicy pop: the placed element scales up from nothing with a slight wobble.
+  const placed = cells[i].querySelector(".ds");
+  if (placed) placed.animate(
+    [
+      { transform: "scale(0) rotate(-12deg)", opacity: 0 },
+      { transform: "scale(1.3) rotate(4deg)", opacity: 1, offset: 0.55 },
+      { transform: "scale(0.9) rotate(-1deg)", offset: 0.8 },
+      { transform: "scale(1) rotate(0deg)" },
+    ],
+    { duration: 420, easing: "ease-out" },
+  );
   // Kick off the green mini-quest once the red + orange + yellow elements it
   // needs are all present (whichever one the player placed last).
   if (st.combo === 0 && st.unlocked === 3 && hasAll(GREEN_SEQ))
