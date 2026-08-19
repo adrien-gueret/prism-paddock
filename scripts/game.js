@@ -222,13 +222,14 @@ function renderBar() {
         lock ? "Locked" : CNAMES[c]
       }"></button>`;
     }
-    const feedHelp = st.unlocked
-      ? `<div class="feedhelp">${
-          happy
-            ? "Wait for the unicorn to finish!"
-            : "Drag a color onto the unicorn to feed her!"
-        }</div>`
-      : "";
+    let feedLeft = "";
+    let feedRight = "";
+    if (st.unlocked) {
+      feedLeft = `<div class="feedhelp fhl">${happy ? "Wait for the unicorn to finish!" : "Drag a color onto<br>the unicorn to feed her."}</div>`;
+      feedRight = st.unlocked >= 2
+        ? `<div class="feedhelp fhr">Tap a color to<br>shop with it.</div>`
+        : `<div class="fhr"></div>`;
+    }
 
     // Shop (planting) is revealed only once the player has harvested butterflies.
     let shop = "";
@@ -251,11 +252,11 @@ function renderBar() {
       }).join("");
       shop =
         `<div class="tools">${items}</div>` +
-        `<div class="feedhelp">Drag a plant onto a tile to place it.</div>`;
+        `<div class="feedhelp">Drag an item onto the grass to place it.</div>`;
     }
 
     // Palette and shop live in one container so they read as a single panel.
-    panel = `<div class="pal">${pal}${feedHelp}${shop}</div>`;
+    panel = `<div class="pal"><div class="palrow">${feedLeft}<div class="sws">${pal}</div>${feedRight}</div>${shop}</div>`;
   }
 
   elBar.innerHTML = panel;
@@ -470,6 +471,8 @@ function onFragDown(e) {
     if (c < 0 || c >= S().unlocked) return;
     dragC = c;
     dragT = -1;
+    selColor = c;
+    renderBar();
   } else return;
   dragging = false;
   dragStart = { x: e.clientX, y: e.clientY };
@@ -593,12 +596,12 @@ function cleanTuto() {
   clearTimeout(walkT);
   clearTimeout(heyT);
   mood("hey"); // stands still while talking
+  S().acts = 1; // first harvest done: reveal the Garden shop
+  persist();
+  renderBar();
   showBubble(CLEAN_MSG);
   dismissBubbleThen(() => {
     mood("");
-    S().acts = 1; // first harvest done: reveal the Garden shop + Remove tab
-    persist();
-    renderBar();
     timer = setTimeout(step, 1200 + getRandom(1500));
   });
 }
@@ -683,6 +686,9 @@ function checkUnlocks() {
       pendingUnlock.add(c);
       const l = UNLOCK_LINES[c];
       if (l) st.line = l[l.length - 1];
+      // Indigo's arc animation speaks VIOLET_POEM; mark the violet quest as
+      // already introduced so it starts in quiet mode when triggered later.
+      if (c === 5) st.qseen |= 2;
       WD?.setAchievement("COLOR_" + c, true);
     }
     // Trigger the juicy rainbow effect once the bar has re-rendered.
@@ -844,7 +850,10 @@ function burstConfetti(x, y) {
 }
 
 function build(i) {
-  if (i === uni || decoAt(i) || poopAt(i)) return;
+  if (i === uni || poopAt(i)) return;
+  // Dropping onto an existing element replaces it: remove it first so its
+  // butterflies fly back to the counter before the new one is placed.
+  if (decoAt(i)) remove(i);
   const st = S();
   st.bf[selColor] -= COSTS[selType];
   st.decos.push([i, selType, selColor]);
@@ -1000,13 +1009,13 @@ function clearGhost() {
   ghostAt = -1;
 }
 
-// Show the build preview on cell `i` (Garden tab, empty & reachable cells only,
-// and only once planting is available).
+// Show the build preview on cell `i` (empty or occupied reachable cells; on an
+// occupied cell the ghost visually replaces the element there). Only once
+// planting is available.
 function showGhost(i) {
   if (i === ghostAt) return;
   clearGhost();
-  if (mode === 2 || !S().acts || i < 0 || i === uni || decoAt(i) || poopAt(i))
-    return;
+  if (mode === 2 || !S().acts || i < 0 || i === uni || poopAt(i)) return;
   cells[i].insertAdjacentHTML("beforeend", plantHtml(selType, " gh"));
   ghostAt = i;
 }

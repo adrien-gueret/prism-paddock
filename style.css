@@ -56,7 +56,7 @@ main {
   overflow: hidden;
   background: var(--lav);
   border: 6px solid var(--ink);
-  padding: 24px;
+  padding: 12px;
   border-radius: 18px;
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.25);
   -ms-user-select: none;
@@ -627,10 +627,16 @@ body:not([data-current-section]) #gameOptions,
   animation: none;
 }
 
+/* While a ghost preview sits on an occupied cell, hide the element it replaces. */
+.cell:has(.gh) .ds:not(.gh) {
+  display: none;
+}
+
 /* Not enough butterflies of the selected color: grey the card. */
 .tb.off {
   filter: grayscale(1) brightness(0.6);
   opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* Toolbar */
@@ -646,7 +652,7 @@ body:not([data-current-section]) #gameOptions,
   border: 4px solid var(--ink);
   border-radius: 14px;
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
-  padding: 28px 10px 14px;
+  padding: 8px 0 16px;
   min-height: 42px;
   box-sizing: border-box;
   display: flex;
@@ -662,7 +668,8 @@ body:not([data-current-section]) #gameOptions,
   gap: 12px;
   font-family: monospace;
   font-weight: bold;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
   padding: 8px 14px 8px 8px;
   border: 3px solid var(--ink);
   background: var(--panel-d);
@@ -772,6 +779,38 @@ body:not([data-current-section]) #gameOptions,
 
 .tools + .feedhelp {
   margin-top: 0;
+}
+
+/* Palette row: left hint + swatches + right hint. */
+.palrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  gap: 8px;
+}
+.sws {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  height: 84px;
+  align-items: center;
+}
+.fhl,
+.fhr {
+  flex: 1;
+  width: auto;
+  position: relative;
+  text-align: center;
+}
+.fhl {
+  bottom: 16px;
+  left: 8px;
+}
+.fhr {
+  top: 8px;
+  right: 32px;
 }
 
 .tools {
