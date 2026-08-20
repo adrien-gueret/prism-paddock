@@ -18,13 +18,12 @@ Unlock them by making the paddock more beautiful. When the last color returns, t
 
 The game revolves around a simple, cozy loop:
 
-1. **Feed the unicorn.** Open the **🌈 Feed** tab to reveal the palette of
-   rainbow fragments: drag any unlocked fragment onto the unicorn to feed her.
+1. **Feed the unicorn.** Drag any unlocked fragment onto the unicorn to feed her.
 2. **Let her digest.** Well fed and happy, she takes a little stroll across the
    meadow and eventually leaves a **butterfly-poop** behind.
 3. **Clean up.** Tap a butterfly-poop to clean it. Each one you clear rewards
    you with **butterflies** of that color.
-4. **Decorate.** Spend your butterflies to grow decorations around the paddock.
+4. **Decorate.** Spend your butterflies to place decorations around the paddock.
    With new deocrations, you can unlock new colors!
 
 ## Butterflies
