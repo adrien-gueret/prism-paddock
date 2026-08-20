@@ -22,7 +22,6 @@ import { hydrate } from "./save.js";
 
     if (!isGameInit && nextSection === "game") {
       isGameInit = true;
-      window.Wavedash?.requestFullscreen(true);
       initGame();
     }
   });
